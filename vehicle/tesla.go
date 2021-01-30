@@ -9,6 +9,7 @@ import (
 	"github.com/andig/evcc/api"
 	"github.com/andig/evcc/provider"
 	"github.com/andig/evcc/util"
+	"github.com/andig/evcc/util/request"
 	"github.com/jsgoecke/tesla"
 	"gopkg.in/ini.v1"
 )
@@ -51,11 +52,14 @@ func NewTeslaFromConfig(other map[string]interface{}) (api.Vehicle, error) {
 		cc.ClientID, cc.ClientSecret = v.downloadClientID("https://pastebin.com/raw/pS7Z6yyP")
 	}
 
+	helper := request.NewHelper(util.NewLogger("tesla"))
+
 	client, err := tesla.NewClient(&tesla.Auth{
 		ClientID:     cc.ClientID,
 		ClientSecret: cc.ClientSecret,
 		Email:        cc.User,
 		Password:     cc.Password,
+		Client:       helper.Client,
 	})
 	if err != nil {
 		return nil, err
