@@ -1,31 +1,63 @@
 package request
 
 import (
-	"crypto/tls"
 	"net/http"
+	"net/http/httputil"
+	"strings"
+
+	"github.com/andig/evcc/util"
 )
 
 // Transport decorates http.Transport with fluent style
 type Transport struct {
-	*http.Transport
+	log  *util.Logger
+	Base http.RoundTripper
 }
 
-// NewDefaultTransport creates a clone of the http.DefaultTransport
-func NewDefaultTransport() *http.Transport {
-	return http.DefaultTransport.(*http.Transport).Clone()
-}
-
-// NewTransport creates an HTTP transport
-func NewTransport() *Transport {
+// NewTransport is a transport that logs requests and responses
+func NewTransport(log *util.Logger, base ...http.RoundTripper) *Transport {
 	t := &Transport{
-		Transport: NewDefaultTransport(),
+		log: log,
+	}
+	if len(base) == 1 {
+		t.Base = base[0]
+	}
+	return t
+}
+
+func (t *Transport) base() http.RoundTripper {
+	if t.Base != nil {
+		return t.Base
+	}
+	return http.DefaultTransport
+}
+
+const max = 1024
+
+func limit(b []byte) string {
+	str := strings.TrimSpace(string(b))
+	if len(str) > max {
+		return str[:max]
+	}
+	return str
+}
+
+// RoundTrip executes the request and logs request and response
+func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
+	reqBytes, _ := httputil.DumpRequest(req, true)
+
+	resp, err := t.base().RoundTrip(req)
+
+	// log request and response
+	t.log.DEBUG.Printf("%d %s %s", resp.StatusCode, req.Method, req.URL)
+	if reqBytes != nil {
+		t.log.TRACE.Println(limit(reqBytes))
+	}
+	if resp != nil {
+		if resBytes, err := httputil.DumpResponse(resp, true); err == nil {
+			t.log.TRACE.Println(limit(resBytes))
+		}
 	}
 
-	return t
-}
-
-// WithTLSConfig sets the transports TLS configuration
-func (t *Transport) WithTLSConfig(tls *tls.Config) *Transport {
-	t.Transport.TLSClientConfig = tls
-	return t
+	return resp, err
 }
