@@ -215,7 +215,8 @@ func main() {
 	ski := fmt.Sprintf("%04X", leaf.SubjectKeyId)
 	fmt.Println("ski:", ski)
 
-	server, err := zeroconf.Register("evcc", zeroconfType, zeroconfDomain, serverPort, []string{"ski=" + ski, "register=true"}, nil)
+	server, err := zeroconf.Register("evcc", zeroconfType, zeroconfDomain, serverPort,
+		[]string{"ski=" + ski, "path=/ship/", "id=evcc-01", "type=EnergyManager", "register=true"}, nil)
 	if err != nil {
 		log.Fatalln(err)
 	}
