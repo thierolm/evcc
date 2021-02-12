@@ -2,6 +2,7 @@ package eebus
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"log"
 	"net/http"
 
@@ -67,7 +68,16 @@ func (s *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		log.Printf("ws read %d: %0x %s", n, p[:n], string(p[:n]))
+		var req map[string]interface{}
+		if err = json.Unmarshal(p[:n], &req); err == nil {
+			log.Printf("ws json: %+v", req)
+
+			if err := conn.WriteMessage(websocket.BinaryMessage, []byte(`{"connectionHello":{"phase":"ready"}}`)); err != nil {
+				log.Printf("resp: %v", err)
+			}
+		} else {
+			log.Printf("ws read %d: %0x %s", n, p[:n], string(p[:n]))
+		}
 	}
 
 	// listen indefinitely for new messages coming
