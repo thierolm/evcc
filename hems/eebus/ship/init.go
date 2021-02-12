@@ -34,6 +34,8 @@ type CmiHandshakeMsg struct {
 }
 
 func (c *Connection) handshake() error {
+	log.Println("ship handshake")
+
 	init := []byte{CmiTypeInit, CmiTypeInit}
 
 	// CMI_STATE_CLIENT_SEND

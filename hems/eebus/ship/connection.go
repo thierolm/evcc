@@ -3,6 +3,7 @@ package ship
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -22,6 +23,8 @@ func New(conn *websocket.Conn) (c *Connection) {
 
 // Connect performs the connection handshake
 func (c *Connection) Connect() error {
+	log.Println("ship connect")
+
 	err := c.handshake()
 	if err == nil {
 		err = c.hello()
@@ -39,6 +42,8 @@ func (c *Connection) Connect() error {
 }
 
 func (c *Connection) writeBinary(msg []byte) error {
+	log.Printf("ship send: %0 x", msg)
+
 	err := c.conn.SetWriteDeadline(time.Now().Add(cmiReadWriteTimeout))
 	if err == nil {
 		c.conn.WriteMessage(websocket.BinaryMessage, msg)
