@@ -160,6 +160,8 @@ func SelfSigned(uri string) (*websocket.Conn, error) {
 	return conn, err
 }
 
+const serverConf = 42424
+
 func main() {
 	// Discover all services on the network (e.g. _workstation._tcp)
 	resolver, err := zeroconf.NewResolver(nil)
@@ -169,6 +171,18 @@ func main() {
 
 	// created signed connections
 	eebus.Connector = SelfSigned
+
+	cert := createCertificate(true, "evcc")
+	// ski := cert.SubjectKeyId
+	_ = cert
+	ski := "cert.SubjectKeyId"
+	fmt.Printf("ski: %0x\n", ski)
+
+	server, err := zeroconf.Register("evcc", zeroconfType, zeroconfDomain, serverConf, []string{"ski=" + ski, "register=true"}, nil)
+	if err != nil {
+		panic(err)
+	}
+	defer server.Shutdown()
 
 	entries := make(chan *zeroconf.ServiceEntry)
 	go discoverDNS(entries)
