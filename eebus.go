@@ -213,7 +213,7 @@ func main() {
 	if err != nil {
 		log.Fatalln("failed parsing certificate:", err.Error())
 	}
-	ski := fmt.Sprintf("%04X", leaf.SubjectKeyId)
+	ski := fmt.Sprintf("%0x", leaf.SubjectKeyId)
 	fmt.Println("ski:", ski)
 
 	service, err := eebus.NewServer(fmt.Sprintf(":%d", serverPort), cert)
