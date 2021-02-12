@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/elliptic"
 	"crypto/tls"
 	"fmt"
 	"io/fs"
@@ -84,7 +85,8 @@ func pemBlockForKey(priv interface{}) *pem.Block {
 }
 
 func createCertificate(isCA bool, hosts ...string) (tls.Certificate, error) {
-	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	// priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return tls.Certificate{}, err
 	}
