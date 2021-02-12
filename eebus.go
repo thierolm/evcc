@@ -35,20 +35,20 @@ const (
 
 func discoverDNS(results <-chan *zeroconf.ServiceEntry) {
 	for entry := range results {
-		// log.Printf("dns: %+v\n", entry)
-		ss, err := eebus.NewFromDNSEntry(entry)
-		if err == nil {
-			err = ss.Connect()
-			log.Printf("%s: %+v", entry.HostName, ss)
-		}
+		log.Printf("mdns: %+v\n", entry)
+		// ss, err := eebus.NewFromDNSEntry(entry)
+		// if err == nil {
+		// 	err = ss.Connect()
+		// 	log.Printf("%s: %+v", entry.HostName, ss)
+		// }
 
-		if err == nil {
-			err = ss.Close()
-		}
+		// if err == nil {
+		// 	err = ss.Close()
+		// }
 
-		if err != nil {
-			log.Println(err)
-		}
+		// if err != nil {
+		// 	log.Println(err)
+		// }
 	}
 }
 
@@ -178,7 +178,7 @@ func SelfSigned(uri string) (*websocket.Conn, error) {
 }
 
 const (
-	serverPort = 42424
+	serverPort = 4712
 	certFile   = "eebus.crt"
 	keyFile    = "eebus.key"
 )

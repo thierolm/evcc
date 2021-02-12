@@ -14,6 +14,7 @@ func NewServer(addr string, cert tls.Certificate) (*http.Server, error) {
 		Handler: &Handler{},
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{cert},
+			ClientAuth:   tls.NoClientCert,
 		},
 	}
 
@@ -59,7 +60,7 @@ func (s *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		log.Printf("ws read: %02x %s", p[:n], string(p[:n]))
+		log.Printf("ws read %d: %0x %s", n, p[:n], string(p[:n]))
 	}
 
 	// listen indefinitely for new messages coming
