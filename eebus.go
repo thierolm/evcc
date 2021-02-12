@@ -23,7 +23,6 @@ import (
 
 	"github.com/andig/evcc/hems/eebus"
 	"github.com/andig/evcc/hems/eebus/ship"
-	"github.com/andig/evcc/hems/semp"
 	"github.com/gorilla/websocket"
 	"github.com/grandcat/zeroconf"
 )
@@ -35,20 +34,20 @@ const (
 
 func discoverDNS(results <-chan *zeroconf.ServiceEntry) {
 	for entry := range results {
-		log.Printf("mdns: %+v\n", entry)
-		// ss, err := eebus.NewFromDNSEntry(entry)
-		// if err == nil {
-		// 	err = ss.Connect()
-		// 	log.Printf("%s: %+v", entry.HostName, ss)
-		// }
+		log.Printf("mdns: %v\n", entry)
+		ss, err := eebus.NewFromDNSEntry(entry)
+		if err == nil {
+			err = ss.Connect()
+			log.Printf("connect %s: %v", entry.HostName, err)
+		}
 
-		// if err == nil {
-		// 	err = ss.Close()
-		// }
+		if err == nil {
+			err = ss.Close()
+		}
 
-		// if err != nil {
-		// 	log.Println(err)
-		// }
+		if err != nil {
+			log.Println(err)
+		}
 	}
 }
 
@@ -143,38 +142,35 @@ func SaveX509KeyPair(certFile, keyFile string, cert tls.Certificate) error {
 	return err
 }
 
-func SelfSigned(uri string) (*websocket.Conn, error) {
-	ips := semp.LocalIPs()
-	ip := ips[0]
-	log.Println("using ip: " + ip.String())
+func selfSignedConnection(cert tls.Certificate) func(uri string) (*websocket.Conn, error) {
+	return func(uri string) (*websocket.Conn, error) {
+		// ips := semp.LocalIPs()
+		// ip := ips[0]
+		// log.Println("using ip: " + ip.String())
 
-	certPool, err := x509.SystemCertPool()
-	if err != nil {
-		return nil, err
+		// certPool, err := x509.SystemCertPool()
+		// if err != nil {
+		// 	return nil, err
+		// }
+
+		dialer := &websocket.Dialer{
+			Proxy:            http.ProxyFromEnvironment,
+			HandshakeTimeout: 5 * time.Second,
+			TLSClientConfig: &tls.Config{
+				// RootCAs:            certPool,
+				Certificates:       []tls.Certificate{cert},
+				InsecureSkipVerify: true,
+			},
+			Subprotocols: []string{ship.SubProtocol},
+		}
+
+		log.Println("using uri: " + uri)
+
+		conn, resp, err := dialer.Dial(uri, http.Header{})
+		fmt.Println(resp)
+
+		return conn, err
 	}
-
-	tlsClientCert, err := createCertificate(false, ip.String())
-	if err != nil {
-		return nil, err
-	}
-
-	dialer := &websocket.Dialer{
-		Proxy:            http.ProxyFromEnvironment,
-		HandshakeTimeout: 5 * time.Second,
-		TLSClientConfig: &tls.Config{
-			RootCAs:            certPool,
-			Certificates:       []tls.Certificate{tlsClientCert},
-			InsecureSkipVerify: true,
-		},
-		Subprotocols: []string{ship.SubProtocol},
-	}
-
-	log.Println("using uri: " + uri)
-
-	conn, resp, err := dialer.Dial(uri, http.Header{})
-	fmt.Println(resp)
-
-	return conn, err
 }
 
 const (
@@ -190,9 +186,6 @@ func main() {
 		log.Fatalln("Failed to initialize resolver:", err.Error())
 	}
 
-	// created signed connections
-	eebus.Connector = SelfSigned
-
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	// err = os.ErrNotExist
 	if err != nil {
@@ -206,6 +199,9 @@ func main() {
 			log.Fatal(err)
 		}
 	}
+
+	// created signed connections
+	eebus.Connector = selfSignedConnection(cert)
 
 	// have certificate now
 	leaf, err := x509.ParseCertificate(cert.Certificate[0])
