@@ -4,13 +4,12 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io/fs"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"time"
-
-	"github.com/andig/evcc/hems/eebus/ship"
-	"github.com/andig/evcc/hems/semp"
 
 	"bytes"
 	"crypto/ecdsa"
@@ -23,6 +22,8 @@ import (
 	"os"
 
 	"github.com/andig/evcc/hems/eebus"
+	"github.com/andig/evcc/hems/eebus/ship"
+	"github.com/andig/evcc/hems/semp"
 	"github.com/gorilla/websocket"
 	"github.com/grandcat/zeroconf"
 )
@@ -34,7 +35,7 @@ const (
 
 func discoverDNS(results <-chan *zeroconf.ServiceEntry) {
 	for entry := range results {
-		// log.Printf("%+v", entry)
+		// log.Printf("dns: %+v\n", entry)
 		ss, err := eebus.NewFromDNSEntry(entry)
 		if err == nil {
 			err = ss.Connect()
@@ -78,10 +79,10 @@ func pemBlockForKey(priv interface{}) *pem.Block {
 	}
 }
 
-func createCertificate(isCA bool, hosts ...string) tls.Certificate {
+func createCertificate(isCA bool, hosts ...string) (tls.Certificate, error) {
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		log.Fatal(err)
+		return tls.Certificate{}, err
 	}
 
 	template := x509.Certificate{
@@ -110,24 +111,36 @@ func createCertificate(isCA bool, hosts ...string) tls.Certificate {
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, publicKey(priv), priv)
 	if err != nil {
-		log.Fatalf("Failed to create certificate: %s", err)
+		return tls.Certificate{}, err
 	}
 
-	out := &bytes.Buffer{}
-	pem.Encode(out, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
-	fmt.Println(out.String())
-
-	out.Reset()
-	pem.Encode(out, pemBlockForKey(priv))
-	fmt.Println(out.String())
-
-	// tls.LoadX509KeyPair(certFile, keyFile)
 	tlsCert := tls.Certificate{
 		Certificate: [][]byte{derBytes},
 		PrivateKey:  priv,
 	}
 
-	return tlsCert
+	return tlsCert, nil
+}
+
+func SaveX509KeyPair(certFile, keyFile string, cert tls.Certificate) error {
+	out := &bytes.Buffer{}
+	err := pem.Encode(out, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Certificate[0]})
+	if err == nil {
+		fmt.Println(out.String())
+		err = ioutil.WriteFile(certFile, out.Bytes(), fs.ModePerm)
+	}
+
+	if err == nil {
+		out.Reset()
+		err = pem.Encode(out, pemBlockForKey(cert.PrivateKey))
+	}
+
+	if err == nil {
+		fmt.Println(out.String())
+		err = ioutil.WriteFile(keyFile, out.Bytes(), fs.ModePerm)
+	}
+
+	return err
 }
 
 func SelfSigned(uri string) (*websocket.Conn, error) {
@@ -137,10 +150,14 @@ func SelfSigned(uri string) (*websocket.Conn, error) {
 
 	certPool, err := x509.SystemCertPool()
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
-	tlsClientCert := createCertificate(false, ip.String())
+	tlsClientCert, err := createCertificate(false, ip.String())
+	if err != nil {
+		return nil, err
+	}
+
 	dialer := &websocket.Dialer{
 		Proxy:            http.ProxyFromEnvironment,
 		HandshakeTimeout: 5 * time.Second,
@@ -160,7 +177,11 @@ func SelfSigned(uri string) (*websocket.Conn, error) {
 	return conn, err
 }
 
-const serverConf = 42424
+const (
+	serverPort = 42424
+	certFile   = "eebus.crt"
+	keyFile    = "eebus.key"
+)
 
 func main() {
 	// Discover all services on the network (e.g. _workstation._tcp)
@@ -172,22 +193,46 @@ func main() {
 	// created signed connections
 	eebus.Connector = SelfSigned
 
-	cert := createCertificate(true, "evcc")
-	// ski := cert.SubjectKeyId
-	_ = cert
-	ski := "cert.SubjectKeyId"
-	fmt.Printf("ski: %0x\n", ski)
-
-	server, err := zeroconf.Register("evcc", zeroconfType, zeroconfDomain, serverConf, []string{"ski=" + ski, "register=true"}, nil)
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	// err = os.ErrNotExist
 	if err != nil {
-		panic(err)
+		if os.IsNotExist(err) {
+			if cert, err = createCertificate(true, "evcc"); err == nil {
+				err = SaveX509KeyPair(certFile, keyFile, cert)
+			}
+		}
+
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	// have certificate now
+	leaf, err := x509.ParseCertificate(cert.Certificate[0])
+	if err != nil {
+		log.Fatalln("failed parsing certificate:", err.Error())
+	}
+	ski := fmt.Sprintf("%04X", leaf.SubjectKeyId)
+	fmt.Println("ski:", ski)
+
+	server, err := zeroconf.Register("evcc", zeroconfType, zeroconfDomain, serverPort, []string{"ski=" + ski, "register=true"}, nil)
+	if err != nil {
+		log.Fatalln(err)
 	}
 	defer server.Shutdown()
+
+	// os.Exit(0)
+
+	service, err := eebus.NewServer(fmt.Sprintf(":%d", serverPort), cert)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	_ = service
 
 	entries := make(chan *zeroconf.ServiceEntry)
 	go discoverDNS(entries)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	if err = resolver.Browse(ctx, zeroconfType, zeroconfDomain, entries); err != nil {
