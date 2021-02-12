@@ -216,7 +216,7 @@ func main() {
 	fmt.Println("ski:", ski)
 
 	server, err := zeroconf.Register("evcc", zeroconfType, zeroconfDomain, serverPort,
-		[]string{"ski=" + ski, "path=/ship/", "id=evcc-01", "type=EnergyManager", "register=true"}, nil)
+		[]string{"txtvers=1", "id=evcc-01", "path=/ship/", "ski=" + ski, "register=true", "type=EnergyManagementSystem"}, nil)
 	if err != nil {
 		log.Fatalln(err)
 	}
