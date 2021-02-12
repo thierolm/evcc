@@ -44,6 +44,13 @@ func (s *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	defer conn.Close()
 
+	go func() {
+		b := []byte{0, 0}
+		if err := conn.WriteMessage(websocket.BinaryMessage, b); err != nil {
+			log.Printf("hello: %v", err)
+		}
+	}()
+
 	p := make([]byte, 1024)
 	for {
 		typ, r, err := conn.NextReader()
