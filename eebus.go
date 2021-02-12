@@ -223,7 +223,7 @@ func main() {
 	_ = service
 
 	server, err := zeroconf.Register(zeroconfInstance, zeroconfType, zeroconfDomain, serverPort,
-		[]string{"txtvers=1", "id=evcc-01", "path=/ship/", "ski=" + ski, "register=true", "brand=evcc", "type=EnergyManagementSystem"}, nil)
+		[]string{"txtvers=1", "id=evcc-01", "path=/ship/", "ski=" + ski, "register=true", "brand=evcc", "model=evcc", "type=EnergyManagementSystem"}, nil)
 	// []string{"txtvers=1", "id=evcc-01", "path=/ship/", "ski=" + ski, "register=true", "brand=evcc", "type=Energy Manager"}, nil)
 	if err != nil {
 		log.Fatalln(err)
