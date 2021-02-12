@@ -28,13 +28,18 @@ import (
 )
 
 const (
-	zeroconfType   = "_ship._tcp"
-	zeroconfDomain = "local."
+	zeroconfType     = "_ship._tcp"
+	zeroconfDomain   = "local."
+	zeroconfInstance = "evcc"
 )
 
 func discoverDNS(results <-chan *zeroconf.ServiceEntry) {
 	for entry := range results {
-		log.Printf("mdns: %v\n", entry)
+		if entry.Instance == zeroconfInstance {
+			continue
+		}
+
+		log.Printf("mdns: %+v\n", entry)
 		ss, err := eebus.NewFromDNSEntry(entry)
 		if err == nil {
 			err = ss.Connect()
@@ -217,7 +222,7 @@ func main() {
 	}
 	_ = service
 
-	server, err := zeroconf.Register("evcc", zeroconfType, zeroconfDomain, serverPort,
+	server, err := zeroconf.Register(zeroconfInstance, zeroconfType, zeroconfDomain, serverPort,
 		// []string{"txtvers=1", "id=evcc-01", "path=/ship/", "ski=" + ski, "register=true", "type=EnergyManagementSystem"}, nil)
 		[]string{"txtvers=1", "id=evcc-01", "path=/ship/", "ski=" + ski, "register=true", "type=Energy Manager"}, nil)
 	if err != nil {
