@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	zeroconfType     = "_tcp"
+	zeroconfType     = "_ship._tcp"
 	zeroconfDomain   = "local."
 	zeroconfInstance = "evcc"
 )
@@ -223,8 +223,8 @@ func main() {
 	_ = service
 
 	server, err := zeroconf.Register(zeroconfInstance, zeroconfType, zeroconfDomain, serverPort,
-		// []string{"txtvers=1", "id=evcc-01", "path=/ship/", "ski=" + ski, "register=true", "type=EnergyManagementSystem"}, nil)
-		[]string{"txtvers=1", "id=evcc-01", "path=/ship/", "ski=" + ski, "register=true", "type=Energy Manager"}, nil)
+		[]string{"txtvers=1", "id=evcc-01", "path=/ship/", "ski=" + ski, "register=true", "brand=evcc", "type=EnergyManagementSystem"}, nil)
+	// []string{"txtvers=1", "id=evcc-01", "path=/ship/", "ski=" + ski, "register=true", "brand=evcc", "type=Energy Manager"}, nil)
 	if err != nil {
 		log.Fatalln(err)
 	}
