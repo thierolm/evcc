@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	zeroconfType     = "_ship._tcp"
+	zeroconfType     = "_tcp"
 	zeroconfDomain   = "local."
 	zeroconfInstance = "evcc"
 )
