@@ -2,7 +2,6 @@ package eebus
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -90,7 +89,6 @@ func defaultWebsocketConnector(uri string) (*websocket.Conn, error) {
 
 // Connect connects to the service endpoint and performs handshake
 func (ss *Service) Connect() error {
-	log.Println("ws connect:", ss.URI)
 	conn, err := Connector(ss.URI)
 	if err != nil {
 		return err

@@ -169,10 +169,8 @@ func selfSignedConnection(cert tls.Certificate) func(uri string) (*websocket.Con
 			Subprotocols: []string{ship.SubProtocol},
 		}
 
-		log.Println("using uri: " + uri)
-
 		conn, resp, err := dialer.Dial(uri, http.Header{})
-		fmt.Println(resp)
+		log.Println("dial:", uri, resp, err)
 
 		return conn, err
 	}
