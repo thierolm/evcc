@@ -47,7 +47,8 @@ func (s *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for {
 		typ, r, err := conn.NextReader()
 		if err != nil {
-			log.Fatal("ws nextreader:", err)
+			log.Println("ws nextreader:", err)
+			return
 		}
 
 		log.Println("ws nextreader:", typ)
