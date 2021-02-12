@@ -36,15 +36,30 @@ func (s *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// upgrade
-	ws, err := upgrader.Upgrade(w, r, nil)
+	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	log.Println("client connected")
-	err = ws.WriteMessage(1, []byte("Hi Client!"))
-	if err != nil {
-		log.Fatal(err)
+	defer conn.Close()
+
+	p := make([]byte, 1024)
+	for {
+		typ, r, err := conn.NextReader()
+		if err != nil {
+			log.Fatal("ws nextreader:", err)
+		}
+
+		log.Println("ws nextreader:", typ)
+
+		n, err := r.Read(p)
+		if err != nil {
+			log.Println("ws read:", err)
+			return
+		}
+
+		log.Printf("ws read: %02x %s", p[:n], string(p[:n]))
 	}
+
 	// listen indefinitely for new messages coming
 }

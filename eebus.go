@@ -215,6 +215,12 @@ func main() {
 	ski := fmt.Sprintf("%04X", leaf.SubjectKeyId)
 	fmt.Println("ski:", ski)
 
+	service, err := eebus.NewServer(fmt.Sprintf(":%d", serverPort), cert)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	_ = service
+
 	server, err := zeroconf.Register("evcc", zeroconfType, zeroconfDomain, serverPort,
 		[]string{"txtvers=1", "id=evcc-01", "path=/ship/", "ski=" + ski, "register=true", "type=EnergyManagementSystem"}, nil)
 	if err != nil {
@@ -223,12 +229,6 @@ func main() {
 	defer server.Shutdown()
 
 	// os.Exit(0)
-
-	service, err := eebus.NewServer(fmt.Sprintf(":%d", serverPort), cert)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	_ = service
 
 	entries := make(chan *zeroconf.ServiceEntry)
 	go discoverDNS(entries)
