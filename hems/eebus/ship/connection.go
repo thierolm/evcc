@@ -1,7 +1,9 @@
 package ship
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -31,16 +33,34 @@ func (c *Connection) log() Logger {
 	return c.Log
 }
 
-// Connect performs the connection handshake
+// Connect performs the client connection handshake
 func (c *Connection) Connect() error {
-	c.log().Println("connect")
-
-	err := c.handshake()
+	err := c.init()
 	if err == nil {
 		err = c.hello()
 	}
 	if err == nil {
-		err = c.protocolHandshake()
+		err = c.clientProtocolHandshake()
+	}
+
+	// close connection if handshake or hello fails
+	if err != nil {
+		_ = c.conn.Close()
+	}
+
+	return err
+}
+
+// Serve performs the server connection handshake
+func (c *Connection) Serve() error {
+	err := c.init()
+	if err == nil {
+		c.log().Println("serve: hello")
+		err = c.hello()
+	}
+	if err == nil {
+		c.log().Println("serve: handshake")
+		err = c.serverProtocolHandshake()
 	}
 
 	// close connection if handshake or hello fails
@@ -61,15 +81,17 @@ func (c *Connection) writeBinary(msg []byte) error {
 	return err
 }
 
-func (c *Connection) writeJSON(jsonMsg interface{}) error {
+func (c *Connection) writeJSON(typ byte, jsonMsg interface{}) error {
 	msg, err := json.Marshal(jsonMsg)
 	if err != nil {
 		return err
 	}
 
-	q := []byte(strconv.Quote(string(msg)))
+	// add header
+	b := bytes.NewBuffer([]byte{typ})
+	b.WriteString(strconv.Quote(string(msg)))
 
-	return c.writeBinary(q)
+	return c.writeBinary(b.Bytes())
 }
 
 func (c *Connection) readBinary() ([]byte, error) {
@@ -91,19 +113,25 @@ func (c *Connection) readBinary() ([]byte, error) {
 	return msg, err
 }
 
-func (c *Connection) readJSON(jsonMsg interface{}) error {
-	msg, err := c.readBinary()
-	if err == nil {
-		var q string
-		q, err = strconv.Unquote(string(msg))
-
-		if err == nil {
-			qq := []byte(q)
-			err = json.Unmarshal(qq, &jsonMsg)
-		}
+func (c *Connection) readJSON(jsonMsg interface{}) (byte, error) {
+	b, err := c.readBinary()
+	if err != nil {
+		return 0, err
 	}
 
-	return err
+	if len(b) < 2 {
+		return 0, errors.New("invalid message")
+	}
+
+	typ := b[0]
+
+	q, err := strconv.Unquote(string(b[1:]))
+	if err == nil {
+		msg := []byte(q)
+		err = json.Unmarshal(msg, &jsonMsg)
+	}
+
+	return typ, err
 }
 
 // Close closes the service connection

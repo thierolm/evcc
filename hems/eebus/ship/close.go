@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	CmiTypeEnd      = 3
-	CmiCloseTimeout = 100 * time.Millisecond
+	CmiTypeEnd      byte = 3
+	CmiCloseTimeout      = 100 * time.Millisecond
 )
 
 type CmiCloseMsg struct {
@@ -41,7 +41,7 @@ func (c *Connection) close() error {
 			},
 		}
 
-		if err := c.writeJSON(msg); err != nil {
+		if err := c.writeJSON(CmiTypeEnd, msg); err != nil {
 			errC <- fmt.Errorf("close send failed: %w", err)
 		}
 	}(errC)
@@ -58,12 +58,17 @@ func (c *Connection) close() error {
 			case <-closeC:
 				return
 			default:
-				err := c.readJSON(&msg)
+				typ, err := c.readJSON(&msg)
 				if err == nil {
-					readC <- msg
-				} else {
-					errC <- fmt.Errorf("close read failed: %w", err)
+					if typ == CmiTypeEnd {
+						readC <- msg
+						continue
+					} else {
+						err = fmt.Errorf("close: invalid type: %0x", typ)
+					}
 				}
+
+				errC <- fmt.Errorf("close: %w", err)
 			}
 		}
 	}(readC, closeC, errC)

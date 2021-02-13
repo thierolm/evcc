@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	CmiTypeInit = 0
+	CmiTypeInit byte = 0
 
 	CmiHelloInitTimeout         = 60 * time.Second
 	CmiHelloProlongationTimeout = 30 * time.Second
@@ -19,7 +19,7 @@ const (
 )
 
 type CmiHelloMsg struct {
-	ConnectionHello `json:"connectionHello"`
+	ConnectionHello []ConnectionHello `json:"connectionHello"`
 }
 
 type ConnectionHello struct {
@@ -29,10 +29,10 @@ type ConnectionHello struct {
 }
 
 type CmiHandshakeMsg struct {
-	ProtocolHandshake `json:"messageProtocolHandshake"`
+	ProtocolHandshake []ProtocolHandshake `json:"messageProtocolHandshake"`
 }
 
-func (c *Connection) handshake() error {
+func (c *Connection) init() error {
 	init := []byte{CmiTypeInit, CmiTypeInit}
 
 	// CMI_STATE_CLIENT_SEND
@@ -57,68 +57,59 @@ func (c *Connection) hello() (err error) {
 	// send ABORT if hello fails
 	defer func() {
 		if err != nil {
-			_ = c.writeJSON(CmiHelloMsg{
-				ConnectionHello{Phase: CmiHelloPhaseAborted},
+			_ = c.writeJSON(CmiTypeControl, CmiHelloMsg{
+				[]ConnectionHello{
+					{Phase: CmiHelloPhaseAborted},
+				},
 			})
 		}
 	}()
 
-	// always send READY
-	errC := make(chan error)
-	go func(errC chan<- error) {
-		msg := CmiHelloMsg{
-			ConnectionHello{Phase: CmiHelloPhaseReady},
-		}
+	req := CmiHelloMsg{
+		[]ConnectionHello{
+			{Phase: CmiHelloPhaseReady},
+		},
+	}
 
-		if err := c.writeJSON(msg); err != nil {
-			errC <- fmt.Errorf("hello send failed: %w", err)
-		}
-	}(errC)
-
-	readC := make(chan CmiHelloMsg, 1)
-	closeC := make(chan struct{})
-	defer close(closeC)
-
-	// read loop
-	go func(readC chan<- CmiHelloMsg, closeC chan struct{}, errC chan error) {
-		var msg CmiHelloMsg
-		for {
-			select {
-			case <-closeC:
-				return
-			default:
-				err := c.readJSON(&msg)
-				if err == nil {
-					readC <- msg
-				} else {
-					errC <- fmt.Errorf("hello read failed: %w", err)
-				}
-			}
-		}
-	}(readC, closeC, errC)
+	if err := c.writeJSON(CmiTypeControl, req); err != nil {
+		return err
+	}
 
 	timer := time.NewTimer(CmiHelloInitTimeout)
 	for {
 		select {
-		case msg := <-readC:
-			c.log().Printf("hello: %+v", msg)
+		case <-timer.C:
+			return errors.New("hello: timeout")
 
-			switch msg.ConnectionHello.Phase {
+		default:
+			var resp CmiHelloMsg
+			typ, err := c.readJSON(&resp)
+
+			if err == nil && typ != CmiTypeControl {
+				err = fmt.Errorf("hello: invalid type: %0x", typ)
+			}
+
+			if err == nil && len(resp.ConnectionHello) != 1 {
+				err = errors.New("hello: invalid length")
+			}
+
+			hello := resp.ConnectionHello[0]
+
+			switch hello.Phase {
 			case "":
-				return errors.New("invalid hello response")
+				return errors.New("hello: invalid response")
+
 			case CmiHelloPhaseAborted:
-				return errors.New("hello aborted by peer")
+				return errors.New("hello: aborted by peer")
+
 			case CmiHelloPhaseReady:
 				return nil
+
 			case CmiHelloPhasePending:
-				if msg.ConnectionHello.ProlongationRequest {
+				if hello.ProlongationRequest {
 					timer = time.NewTimer(CmiHelloProlongationTimeout)
 				}
 			}
-		case err := <-errC:
-			return err
-		case <-timer.C:
-			return errors.New("hello timeout")
 		}
 	}
 }

@@ -50,45 +50,8 @@ func (s *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	sc := ship.New(conn)
 	sc.Log = log.New(&writer{os.Stdout, "2006/01/02 15:04:05 "}, "[server] ", 0)
 
-	if err := sc.Connect(); err != nil {
-		sc.Log.Println(err)
+	if err := sc.Serve(); err != nil {
+		sc.Log.Println("connect:", err)
 		return
 	}
-
-	// go func() {
-	// 	b := []byte{0, 0}
-	// 	if err := conn.WriteMessage(websocket.BinaryMessage, b); err != nil {
-	// 		log.Printf("hello: %v", err)
-	// 	}
-	// }()
-
-	// p := make([]byte, 1024)
-	// for {
-	// 	typ, r, err := conn.NextReader()
-	// 	if err != nil {
-	// 		log.Println("ws nextreader:", err)
-	// 		return
-	// 	}
-
-	// 	log.Println("ws nextreader:", typ)
-
-	// 	n, err := r.Read(p)
-	// 	if err != nil {
-	// 		log.Println("ws read:", err)
-	// 		return
-	// 	}
-
-	// 	var req map[string]interface{}
-	// 	if err = json.Unmarshal(p[:n], &req); err == nil {
-	// 		log.Printf("ws json: %+v", req)
-
-	// 		if err := conn.WriteMessage(websocket.BinaryMessage, []byte(`{"connectionHello":{"phase":"ready"}}`)); err != nil {
-	// 			log.Printf("resp: %v", err)
-	// 		}
-	// 	} else {
-	// 		log.Printf("ws read %d: %0x %s", n, p[:n], string(p[:n]))
-	// 	}
-	// }
-
-	// listen indefinitely for new messages coming
 }
