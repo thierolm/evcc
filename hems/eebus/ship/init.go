@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"log"
 	"time"
 )
 
@@ -34,8 +33,6 @@ type CmiHandshakeMsg struct {
 }
 
 func (c *Connection) handshake() error {
-	log.Println("ship handshake")
-
 	init := []byte{CmiTypeInit, CmiTypeInit}
 
 	// CMI_STATE_CLIENT_SEND
@@ -48,7 +45,6 @@ func (c *Connection) handshake() error {
 	if err != nil {
 		return err
 	}
-	log.Printf("recv: %0 x", msg)
 
 	if bytes.Compare(init, msg) != 0 {
 		return fmt.Errorf("invalid init response: %0 x", msg)
@@ -105,7 +101,7 @@ func (c *Connection) hello() (err error) {
 	for {
 		select {
 		case msg := <-readC:
-			log.Printf("hello recv: %+v", msg)
+			c.log().Printf("hello: %+v", msg)
 
 			switch msg.ConnectionHello.Phase {
 			case "":

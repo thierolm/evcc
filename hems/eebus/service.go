@@ -2,7 +2,9 @@ package eebus
 
 import (
 	"fmt"
+	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -94,7 +96,10 @@ func (ss *Service) Connect() error {
 		return err
 	}
 
-	ss.Conn = ship.New(conn)
+	sc := ship.New(conn)
+	sc.Log = log.New(&writer{os.Stdout, "2006/01/02 15:04:05 "}, "[client] ", 0)
+
+	ss.Conn = sc
 
 	return ss.Conn.Connect()
 }

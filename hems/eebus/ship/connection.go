@@ -3,7 +3,7 @@ package ship
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -11,8 +11,14 @@ import (
 
 const cmiReadWriteTimeout = 10 * time.Second
 
+type Logger interface {
+	Printf(format string, v ...interface{})
+	Println(v ...interface{})
+}
+
 type Connection struct {
 	conn *websocket.Conn
+	Log  Logger
 }
 
 func New(conn *websocket.Conn) (c *Connection) {
@@ -21,9 +27,13 @@ func New(conn *websocket.Conn) (c *Connection) {
 	}
 }
 
+func (c *Connection) log() Logger {
+	return c.Log
+}
+
 // Connect performs the connection handshake
 func (c *Connection) Connect() error {
-	log.Println("ship connect")
+	c.log().Println("connect")
 
 	err := c.handshake()
 	if err == nil {
@@ -42,7 +52,7 @@ func (c *Connection) Connect() error {
 }
 
 func (c *Connection) writeBinary(msg []byte) error {
-	log.Printf("ship send: %0 x", msg)
+	c.log().Println("send:", string(msg))
 
 	err := c.conn.SetWriteDeadline(time.Now().Add(cmiReadWriteTimeout))
 	if err == nil {
@@ -57,7 +67,9 @@ func (c *Connection) writeJSON(jsonMsg interface{}) error {
 		return err
 	}
 
-	return c.writeBinary(msg)
+	q := []byte(strconv.Quote(string(msg)))
+
+	return c.writeBinary(q)
 }
 
 func (c *Connection) readBinary() ([]byte, error) {
@@ -68,8 +80,12 @@ func (c *Connection) readBinary() ([]byte, error) {
 
 	typ, msg, err := c.conn.ReadMessage()
 
-	if err == nil && typ != websocket.BinaryMessage {
-		err = fmt.Errorf("invalid message type: %d", typ)
+	if err == nil {
+		c.log().Println("recv:", string(msg))
+
+		if typ != websocket.BinaryMessage {
+			err = fmt.Errorf("invalid message type: %d", typ)
+		}
 	}
 
 	return msg, err
@@ -78,7 +94,13 @@ func (c *Connection) readBinary() ([]byte, error) {
 func (c *Connection) readJSON(jsonMsg interface{}) error {
 	msg, err := c.readBinary()
 	if err == nil {
-		err = json.Unmarshal(msg, &jsonMsg)
+		var q string
+		q, err = strconv.Unquote(string(msg))
+
+		if err == nil {
+			qq := []byte(q)
+			err = json.Unmarshal(qq, &jsonMsg)
+		}
 	}
 
 	return err

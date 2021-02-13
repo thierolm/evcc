@@ -36,11 +36,11 @@ const (
 
 func discoverDNS(results <-chan *zeroconf.ServiceEntry) {
 	for entry := range results {
-		if entry.Instance == zeroconfInstance {
-			continue
-		}
+		// if entry.Instance == zeroconfInstance {
+		// 	continue
+		// }
 
-		log.Printf("mdns: %+v\n", entry)
+		log.Println("mdns:", entry.HostName, entry.ServiceName(), entry.Text)
 		ss, err := eebus.NewFromDNSEntry(entry)
 		if err == nil {
 			err = ss.Connect()
@@ -97,7 +97,7 @@ func createCertificate(isCA bool, hosts ...string) (tls.Certificate, error) {
 			Organization: []string{"Acme Co"},
 		},
 		NotBefore:             time.Now(),
-		NotAfter:              time.Now().Add(time.Hour * 24 * 180),
+		NotAfter:              time.Now().Add(time.Hour * 24 * 365),
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
