@@ -53,17 +53,14 @@ func (c *Connection) handshakeReceiveSelect() (CmiHandshakeMsg, error) {
 		handshake := resp.ProtocolHandshake[0]
 
 		if handshake.HandshakeType != ProtocolHandshakeTypeSelect ||
-			len(handshake.Formats) != 1 ||
-			handshake.Formats[0] != ProtocolHandshakeFormatJSON {
+			len(handshake.Formats) != 1 || handshake.Formats[0] != ProtocolHandshakeFormatJSON {
 			msg := CmiProtocolHandshakeError{
 				Error: CmiProtocolHandshakeErrorUnexpectedMessage,
 			}
 
 			_ = c.writeJSON(CmiTypeControl, msg)
 			err = errors.New("handshake: invalid response")
-		} else {
-			// send selection back to server
-			err = c.writeJSON(CmiTypeControl, resp)
+
 		}
 	}
 
@@ -82,8 +79,15 @@ func (c *Connection) clientProtocolHandshake() error {
 	}
 	err := c.writeJSON(CmiTypeControl, req)
 
+	// receive server selection
+	var resp CmiHandshakeMsg
 	if err == nil {
-		_, err = c.handshakeReceiveSelect()
+		resp, err = c.handshakeReceiveSelect()
+	}
+
+	// send selection back to server
+	if err == nil {
+		err = c.writeJSON(CmiTypeControl, resp)
 	}
 
 	return err
@@ -105,8 +109,7 @@ func (c *Connection) serverProtocolHandshake() error {
 		handshake := req.ProtocolHandshake[0]
 
 		if handshake.HandshakeType != ProtocolHandshakeTypeAnnounceMax ||
-			len(handshake.Formats) != 1 ||
-			handshake.Formats[0] != ProtocolHandshakeFormatJSON {
+			len(handshake.Formats) != 1 || handshake.Formats[0] != ProtocolHandshakeFormatJSON {
 			msg := CmiProtocolHandshakeError{
 				Error: CmiProtocolHandshakeErrorUnexpectedMessage,
 			}
@@ -114,12 +117,13 @@ func (c *Connection) serverProtocolHandshake() error {
 			_ = c.writeJSON(CmiTypeControl, msg)
 			err = errors.New("handshake: invalid response")
 		} else {
-			// send selection back to server
+			// send selection to client
 			req.ProtocolHandshake[0].HandshakeType = ProtocolHandshakeTypeSelect
 			err = c.writeJSON(CmiTypeControl, req)
 		}
 	}
 
+	// receive selection back from client
 	if err == nil {
 		_, err = c.handshakeReceiveSelect()
 	}

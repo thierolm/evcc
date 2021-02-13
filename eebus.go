@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/elliptic"
+	"crypto/sha1"
 	"crypto/tls"
 	"fmt"
 	"io/fs"
@@ -91,12 +92,20 @@ func createCertificate(isCA bool, hosts ...string) (tls.Certificate, error) {
 		return tls.Certificate{}, err
 	}
 
+	// convert pubkey to ski
+	pub, err := x509.MarshalECPrivateKey(priv)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	ski := sha1.Sum(pub)
+
 	template := x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
 			Organization: []string{"Acme Co"},
 		},
 		SignatureAlgorithm:    x509.ECDSAWithSHA256,
+		SubjectKeyId:          ski[:],
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().Add(time.Hour * 24 * 365),
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
@@ -181,8 +190,8 @@ func selfSignedConnection(cert tls.Certificate) func(uri string) (*websocket.Con
 
 const (
 	serverPort = 4712
-	certFile   = "eebus.crt"
-	keyFile    = "eebus.key"
+	certFile   = "evcc.crt"
+	keyFile    = "evcc.key"
 )
 
 func main() {
@@ -196,7 +205,7 @@ func main() {
 	// err = os.ErrNotExist
 	if err != nil {
 		if os.IsNotExist(err) {
-			if cert, err = createCertificate(true, "evcc"); err == nil {
+			if cert, err = createCertificate(false, "evcc"); err == nil {
 				err = SaveX509KeyPair(certFile, keyFile, cert)
 			}
 		}
@@ -206,7 +215,7 @@ func main() {
 		}
 	}
 
-	// created signed connections
+	// create signed connections
 	eebus.Connector = selfSignedConnection(cert)
 
 	// have certificate now

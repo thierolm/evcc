@@ -68,6 +68,8 @@ func (c *Connection) Serve() error {
 		_ = c.conn.Close()
 	}
 
+	time.Sleep(60 * time.Second)
+
 	return err
 }
 

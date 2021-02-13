@@ -36,7 +36,7 @@ func (c *Connection) close() error {
 	go func(errC chan<- error) {
 		msg := CmiCloseMsg{
 			ConnectionClose: []ConnectionClose{
-				ConnectionClose{
+				{
 					Phase:   CmiClosePhaseAnnounce,
 					MaxTime: int(CmiCloseTimeout / time.Millisecond),
 				},
