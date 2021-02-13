@@ -74,7 +74,11 @@ func (c *Connection) Serve() error {
 }
 
 func (c *Connection) writeBinary(msg []byte) error {
-	c.log().Println("send:", string(msg))
+	if len(msg) < 3 {
+		c.log().Printf("send: %0 x", msg)
+	} else {
+		c.log().Println("send:", string(msg))
+	}
 
 	err := c.conn.SetWriteDeadline(time.Now().Add(cmiReadWriteTimeout))
 	if err == nil {
@@ -105,7 +109,11 @@ func (c *Connection) readBinary() ([]byte, error) {
 	typ, msg, err := c.conn.ReadMessage()
 
 	if err == nil {
-		c.log().Println("recv:", string(msg))
+		if len(msg) < 3 {
+			c.log().Printf("recv: %0 x", msg)
+		} else {
+			c.log().Println("recv:", string(msg))
+		}
 
 		if typ != websocket.BinaryMessage {
 			err = fmt.Errorf("invalid message type: %d", typ)
