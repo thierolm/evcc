@@ -57,7 +57,8 @@ func (c *Connection) hello() (err error) {
 	// send ABORT if hello fails
 	defer func() {
 		if err != nil {
-			_ = c.writeJSON(CmiTypeControl, CmiHelloMsg{
+			// TODO
+			_ = c.writeJSON(CmiTypeEnd, CmiHelloMsg{
 				[]ConnectionHello{
 					{Phase: CmiHelloPhaseAborted},
 				},

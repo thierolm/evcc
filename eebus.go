@@ -96,6 +96,7 @@ func createCertificate(isCA bool, hosts ...string) (tls.Certificate, error) {
 		Subject: pkix.Name{
 			Organization: []string{"Acme Co"},
 		},
+		SignatureAlgorithm:    x509.ECDSAWithSHA256,
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().Add(time.Hour * 24 * 365),
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,

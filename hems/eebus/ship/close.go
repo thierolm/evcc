@@ -13,7 +13,7 @@ const (
 )
 
 type CmiCloseMsg struct {
-	ConnectionClose `json:"connectionClose"`
+	ConnectionClose []ConnectionClose `json:"connectionClose"`
 }
 
 const (
@@ -35,9 +35,11 @@ func (c *Connection) close() error {
 	errC := make(chan error)
 	go func(errC chan<- error) {
 		msg := CmiCloseMsg{
-			ConnectionClose: ConnectionClose{
-				Phase:   CmiClosePhaseAnnounce,
-				MaxTime: int(CmiCloseTimeout / time.Millisecond),
+			ConnectionClose: []ConnectionClose{
+				ConnectionClose{
+					Phase:   CmiClosePhaseAnnounce,
+					MaxTime: int(CmiCloseTimeout / time.Millisecond),
+				},
 			},
 		}
 
