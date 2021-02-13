@@ -81,7 +81,7 @@ func (c *Connection) close() error {
 		case msg := <-readC:
 			log.Printf("close recv: %+v", msg)
 
-			switch msg.ConnectionClose.Phase {
+			switch msg.ConnectionClose[0].Phase {
 			case CmiClosePhaseConfirm:
 				return nil
 			default:
