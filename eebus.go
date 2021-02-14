@@ -36,6 +36,22 @@ const (
 	zeroconfInstance = "evcc"
 )
 
+func connectService(entry *zeroconf.ServiceEntry) {
+	ss, err := eebus.NewFromDNSEntry(entry)
+	if err == nil {
+		err = ss.Connect()
+		log.Printf("connect %s: %v", entry.HostName, err)
+	}
+
+	if err == nil {
+		err = ss.Close()
+	}
+
+	if err != nil {
+		log.Println(err)
+	}
+}
+
 func discoverDNS(results <-chan *zeroconf.ServiceEntry) {
 	for entry := range results {
 		// if entry.Instance == zeroconfInstance {
@@ -43,19 +59,7 @@ func discoverDNS(results <-chan *zeroconf.ServiceEntry) {
 		// }
 
 		log.Println("mdns:", entry.HostName, entry.ServiceName(), entry.Text)
-		ss, err := eebus.NewFromDNSEntry(entry)
-		if err == nil {
-			err = ss.Connect()
-			log.Printf("connect %s: %v", entry.HostName, err)
-		}
-
-		if err == nil {
-			err = ss.Close()
-		}
-
-		if err != nil {
-			log.Println(err)
-		}
+		// connectService(entry)
 	}
 }
 
@@ -164,20 +168,10 @@ func SaveX509KeyPair(certFile, keyFile string, cert tls.Certificate) error {
 
 func selfSignedConnection(cert tls.Certificate) func(uri string) (*websocket.Conn, error) {
 	return func(uri string) (*websocket.Conn, error) {
-		// ips := semp.LocalIPs()
-		// ip := ips[0]
-		// log.Println("using ip: " + ip.String())
-
-		// certPool, err := x509.SystemCertPool()
-		// if err != nil {
-		// 	return nil, err
-		// }
-
 		dialer := &websocket.Dialer{
 			Proxy:            http.ProxyFromEnvironment,
 			HandshakeTimeout: 5 * time.Second,
 			TLSClientConfig: &tls.Config{
-				// RootCAs:            certPool,
 				Certificates:       []tls.Certificate{cert},
 				InsecureSkipVerify: true,
 				CipherSuites:       ship.CipherSuites,
@@ -228,7 +222,6 @@ func main() {
 		log.Fatalln("failed parsing certificate:", err.Error())
 	}
 	ski := fmt.Sprintf("%0x", leaf.SubjectKeyId)
-	fmt.Println("ski:", ski)
 
 	service, err := eebus.NewServer(fmt.Sprintf(":%d", serverPort), cert)
 	if err != nil {
@@ -252,7 +245,7 @@ func main() {
 	defer cancel()
 
 	if err = resolver.Browse(ctx, zeroconfType, zeroconfDomain, entries); err != nil {
-		log.Fatalln("Failed to browse:", err.Error())
+		log.Fatalln("failed to browse:", err.Error())
 	}
 
 	c := make(chan os.Signal, 1)
