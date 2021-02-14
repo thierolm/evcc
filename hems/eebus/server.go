@@ -17,6 +17,7 @@ func NewServer(addr string, cert tls.Certificate) (*http.Server, error) {
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{cert},
 			ClientAuth:   tls.NoClientCert,
+			CipherSuites: ship.CipherSuites,
 		},
 	}
 

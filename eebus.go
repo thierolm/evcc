@@ -177,6 +177,7 @@ func selfSignedConnection(cert tls.Certificate) func(uri string) (*websocket.Con
 				// RootCAs:            certPool,
 				Certificates:       []tls.Certificate{cert},
 				InsecureSkipVerify: true,
+				CipherSuites:       ship.CipherSuites,
 			},
 			Subprotocols: []string{ship.SubProtocol},
 		}
