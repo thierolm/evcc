@@ -11,6 +11,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os/signal"
 	"time"
 
 	"bytes"
@@ -253,6 +254,15 @@ func main() {
 	if err = resolver.Browse(ctx, zeroconfType, zeroconfDomain, entries); err != nil {
 		log.Fatalln("Failed to browse:", err.Error())
 	}
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		for range c {
+			log.Println("mdns: shutdown")
+			server.Shutdown()
+		}
+	}()
 
 	<-ctx.Done()
 }
