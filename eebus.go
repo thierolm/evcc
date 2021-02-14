@@ -85,7 +85,7 @@ func pemBlockForKey(priv interface{}) *pem.Block {
 	}
 }
 
-func createCertificate(isCA bool, hosts ...string) (tls.Certificate, error) {
+func createCertificate(isCA bool, cn string, hosts ...string) (tls.Certificate, error) {
 	// priv, err := rsa.GenerateKey(rand.Reader, 2048)
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -102,14 +102,16 @@ func createCertificate(isCA bool, hosts ...string) (tls.Certificate, error) {
 	template := x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
-			Organization: []string{"Acme Co"},
+			CommonName:   cn,
+			Country:      []string{"DE"},
+			Organization: []string{"EVCC"},
 		},
-		SignatureAlgorithm:    x509.ECDSAWithSHA256,
-		SubjectKeyId:          ski[:],
-		NotBefore:             time.Now(),
-		NotAfter:              time.Now().Add(time.Hour * 24 * 365),
-		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		SignatureAlgorithm: x509.ECDSAWithSHA256,
+		SubjectKeyId:       ski[:],
+		NotBefore:          time.Now(),
+		NotAfter:           time.Now().Add(time.Hour * 24 * 365),
+		// KeyUsage:           x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		// ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
 	}
 
@@ -122,7 +124,7 @@ func createCertificate(isCA bool, hosts ...string) (tls.Certificate, error) {
 	}
 	if isCA {
 		template.IsCA = true
-		template.KeyUsage |= x509.KeyUsageCertSign
+		// template.KeyUsage |= x509.KeyUsageCertSign
 	}
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, publicKey(priv), priv)
@@ -206,7 +208,7 @@ func main() {
 	// err = os.ErrNotExist
 	if err != nil {
 		if os.IsNotExist(err) {
-			if cert, err = createCertificate(false, "evcc"); err == nil {
+			if cert, err = createCertificate(true, zeroconfInstance); err == nil {
 				err = SaveX509KeyPair(certFile, keyFile, cert)
 			}
 		}
@@ -235,7 +237,6 @@ func main() {
 
 	server, err := zeroconf.Register(zeroconfInstance, zeroconfType, zeroconfDomain, serverPort,
 		[]string{"txtvers=1", "id=evcc-01", "path=/ship/", "ski=" + ski, "register=true", "brand=evcc", "model=evcc", "type=EnergyManagementSystem"}, nil)
-	// []string{"txtvers=1", "id=evcc-01", "path=/ship/", "ski=" + ski, "register=true", "brand=evcc", "type=Energy Manager"}, nil)
 	if err != nil {
 		log.Fatalln(err)
 	}
