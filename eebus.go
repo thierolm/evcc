@@ -261,6 +261,7 @@ func main() {
 		for range c {
 			log.Println("mdns: shutdown")
 			server.Shutdown()
+			os.Exit(0)
 		}
 	}()
 
