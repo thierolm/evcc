@@ -44,12 +44,15 @@ func NewFritzDECTFromConfig(other map[string]interface{}) (api.Charger, error) {
 		StandbyPower float64
 		Updated      time.Time
 	}{}
+
 	if err := util.DecodeOther(other, &cc); err != nil {
 		return nil, err
 	}
+
 	if cc.URI == "" || cc.AIN == "" {
-		return nil, errors.New("fritzdect config: must have uri and ain of AVM FritzDECT switch")
+		return nil, errors.New("fritzdect: must have uri and ain of AVM FritzDECT switch")
 	}
+
 	return NewFritzDECT(cc.URI, cc.AIN, cc.User, cc.Password, cc.SID, cc.StandbyPower, cc.Updated)
 }
 
@@ -77,11 +80,13 @@ func (c *FritzDECT) execFritzDectCmd(function string) (string, error) {
 		// Update session timestamp
 		c.updated = time.Now()
 	}
+
 	parameters := url.Values{
 		"sid":       []string{c.sid},
 		"ain":       []string{c.ain},
 		"switchcmd": []string{function},
 	}
+
 	uri := fmt.Sprintf("%s/webservices/homeautoswitch.lua", c.uri)
 	response, err := c.GetBody(uri + "?" + parameters.Encode())
 	return strings.TrimSpace(string(response)), err
@@ -89,36 +94,29 @@ func (c *FritzDECT) execFritzDectCmd(function string) (string, error) {
 
 // Status implements the Charger.Status interface
 func (c *FritzDECT) Status() (api.ChargeStatus, error) {
-	var resp string
-	var err error
 	// present 0/1 - DECT Switch connected to fritzbox (no/yes)
 	var present int64
-	resp, err = c.execFritzDectCmd("getswitchpresent")
-	if err != nil {
-		return api.StatusNone, err
+	resp, err := c.execFritzDectCmd("getswitchpresent")
+	if err == nil {
+		present, err = strconv.ParseInt(resp, 10, 64)
 	}
-	present, err = strconv.ParseInt(resp, 10, 64)
-	if err != nil {
-		return api.StatusNone, err
-	}
+
 	// power value in 0,001 W (current switch power, refresh aproximately every 2 minutes)
 	var power float64
-	resp, err = c.execFritzDectCmd("getswitchpower")
-	if err != nil {
-		return api.StatusNone, err
+	if err == nil {
+		if resp, err = c.execFritzDectCmd("getswitchpower"); err == nil {
+			power, err = strconv.ParseFloat(resp, 64)
+		}
 	}
-	power, err = strconv.ParseFloat(resp, 64)
-	if err != nil {
-		return api.StatusNone, err
-	}
+
 	power = power / 1000 // mW ==> W
 	switch {
 	case present == 1 && power == 0:
-		return api.StatusA, nil
+		return api.StatusA, err
 	case present == 1 && power <= c.standbypower:
-		return api.StatusB, nil
+		return api.StatusB, err
 	case present == 1 && power > c.standbypower:
-		return api.StatusC, nil
+		return api.StatusC, err
 	default:
 		return api.StatusNone, errors.New("switch absent")
 	}
@@ -126,39 +124,32 @@ func (c *FritzDECT) Status() (api.ChargeStatus, error) {
 
 // Enabled implements the Charger.Enabled interface
 func (c *FritzDECT) Enabled() (bool, error) {
-	var resp string
-	var err error
 	// state 0/1 - DECT Switch state off/on (empty if unkown or error)
+	resp, err := c.execFritzDectCmd("getswitchstate")
+
 	var state int64
-	resp, err = c.execFritzDectCmd("getswitchstate")
-	if err != nil {
-		return false, err
+	if err == nil {
+		state, err = strconv.ParseInt(resp, 10, 32)
 	}
-	state, err = strconv.ParseInt(resp, 10, 32)
-	if err != nil {
-		return false, err
-	}
+
 	return state == 1, err
 }
 
 // Enable implements the Charger.Enable interface
 func (c *FritzDECT) Enable(enable bool) error {
-	var resp string
-	var err error
-	// state 0/1 - DECT Switch state off/on (empty if unkown or error)
-	var state int64
+	cmd := "setswitchoff"
 	if enable {
-		resp, err = c.execFritzDectCmd("setswitchon")
-		if err != nil {
-			return err
-		}
-	} else {
-		resp, err = c.execFritzDectCmd("setswitchoff")
-		if err != nil {
-			return err
-		}
+		cmd = "setswitchon"
 	}
-	state, err = strconv.ParseInt(resp, 10, 32)
+
+	// state 0/1 - DECT Switch state off/on (empty if unkown or error)
+	resp, err := c.execFritzDectCmd(cmd)
+
+	var state int64
+	if err == nil {
+		state, err = strconv.ParseInt(resp, 10, 32)
+	}
+
 	switch {
 	case err != nil:
 		return err
