@@ -169,23 +169,20 @@ func (c *FritzDECT) MaxCurrent(current int64) error {
 
 // CurrentPower implements the Meter interface.
 func (c *FritzDECT) CurrentPower() (float64, error) {
-	var resp string
-	var err error
 	// power value in 0,001 W (current switch power, refresh aproximately every 2 minutes)
+	resp, err := c.execFritzDectCmd("getswitchpower")
+
 	var power float64
-	resp, err = c.execFritzDectCmd("getswitchpower")
-	if err != nil {
-		return 0, err
+	if err == nil {
+		power, err = strconv.ParseFloat(resp, 64)
 	}
-	power, err = strconv.ParseFloat(resp, 64)
-	if err != nil {
-		return 0, err
-	}
-	power = power / 1000 // mW ==> W
+
 	// ignore standby power
+	power = power / 1000 // mW ==> W
 	if power < c.standbypower {
 		power = 0
 	}
+
 	return power, err
 }
 
@@ -194,33 +191,36 @@ func (c *FritzDECT) CurrentPower() (float64, error) {
 //getSessionID fetches a session-id based on the username and password in the connection struct
 func (c *FritzDECT) getSessionID() error {
 	uri := fmt.Sprintf("%s/login_sid.lua", c.uri)
-	var parameters url.Values
-	type result struct {
-		SID       string
-		Challenge string
-		BlockTime string
-	}
 	body, err := c.GetBody(uri)
 	if err != nil {
 		return err
 	}
-	v := result{SID: "none", Challenge: "none", BlockTime: "none"}
-	err = xml.Unmarshal(body, &v)
-	if err == nil && v.SID == "0000000000000000" {
+
+	v := struct {
+		SID       string
+		Challenge string
+		BlockTime string
+	}{
+		SID:       "none",
+		Challenge: "none",
+		BlockTime: "none",
+	}
+
+	if err = xml.Unmarshal(body, &v); err == nil && v.SID == "0000000000000000" {
 		var challresp string
-		challresp, err = createChallengeResponse(v.Challenge, c.password)
-		if err == nil {
-			parameters = url.Values{
+		if challresp, err = createChallengeResponse(v.Challenge, c.password); err == nil {
+			params := url.Values{
 				"username": []string{c.user},
 				"response": []string{challresp},
 			}
-			body, err = c.GetBody(uri + "?" + parameters.Encode())
-			if err == nil {
+
+			if body, err = c.GetBody(uri + "?" + params.Encode()); err == nil {
 				err = xml.Unmarshal(body, &v)
 				c.sid = v.SID
 			}
 		}
 	}
+
 	return err
 }
 
@@ -231,11 +231,12 @@ func createChallengeResponse(challenge string, pass string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	hash := md5.New()
-	n, err := hash.Write([]byte(utf16le))
-	if err != nil {
-		return "", errors.New("md5 hash creation failed" + strconv.Itoa(n))
+	if _, err = hash.Write([]byte(utf16le)); err != nil {
+		return "", err
 	}
+
 	md5hash := hex.EncodeToString(hash.Sum(nil))
 	return challenge + "-" + md5hash, nil
 }
