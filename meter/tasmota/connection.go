@@ -182,6 +182,23 @@ func (c *Connection) CurrentPower() (float64, error) {
 	if err != nil {
 		return 0, err
 	}
+	// 3 phase meter value
+	if c.channel == 123 {
+		power1, err := res.StatusSNS.Energy.Power.Channel(1)
+		if err != nil {
+			return 0, err
+		}
+		power2, err := res.StatusSNS.Energy.Power.Channel(2)
+		if err != nil {
+			return 0, err
+		}
+		power3, err := res.StatusSNS.Energy.Power.Channel(3)
+		if err != nil {
+			return 0, err
+		}
+		return power1 + power2 + power3, nil
+	}
+	// 1 phase meter value
 	return res.StatusSNS.Energy.Power.Channel(c.channel)
 }
 
@@ -189,6 +206,36 @@ func (c *Connection) CurrentPower() (float64, error) {
 func (c *Connection) TotalEnergy() (float64, error) {
 	res, err := c.statusSnsG.Get()
 	return res.StatusSNS.Energy.Total, err
+}
+
+// Currents implements the api.PhaseCurrents interface
+func (c *Connection) Currents() (float64, float64, float64, error) {
+	res, err := c.statusSnsG.Get()
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	// 3 phase meter value
+	if c.channel == 123 {
+		current1, err := res.StatusSNS.Energy.Current.Channel(1)
+		if err != nil {
+			return 0, 0, 0, err
+		}
+		current2, err := res.StatusSNS.Energy.Current.Channel(2)
+		if err != nil {
+			return 0, 0, 0, err
+		}
+		current3, err := res.StatusSNS.Energy.Current.Channel(3)
+		if err != nil {
+			return 0, 0, 0, err
+		}
+		return current1, current2, current3, nil
+	}
+	// 1 phase meter value
+	current1, err := res.StatusSNS.Energy.Current.Channel(1)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	return current1, 0, 0, err
 }
 
 // SmlPower provides the sml sensor power
