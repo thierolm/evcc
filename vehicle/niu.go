@@ -110,7 +110,8 @@ func (v *Niu) newRequest(method, uri string, body io.Reader) (*http.Request, err
 		return nil, err
 	}
 	req, err := request.New(method, uri, body, map[string]string{
-		"token": v.token.AccessToken,
+		"token":           v.token.AccessToken,
+		"accept-language": "en",
 	})
 	return req, err
 }
@@ -120,7 +121,10 @@ func (v *Niu) request(uri string) (*http.Request, error) {
 }
 
 func (v *Niu) post(uri string) (*http.Request, error) {
-	data := url.Values{"sn": {v.serial}}
+	data := url.Values{
+		"sn":    {v.serial},
+		"token": {v.token.AccessToken},
+	}
 	return v.newRequest(http.MethodPost, uri, strings.NewReader(data.Encode()))
 }
 
