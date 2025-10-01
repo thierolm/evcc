@@ -64,7 +64,7 @@ jobs:
             ${{ runner.os }}-go-build-
             ${{ runner.os }}-go-
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: "22"
           cache: "npm"
@@ -136,7 +136,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: "22"
           cache: "npm"
@@ -186,7 +186,7 @@ jobs:
             ${{ runner.os }}-go-integration-
             ${{ runner.os }}-go-
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: "22"
           cache: "npm"
